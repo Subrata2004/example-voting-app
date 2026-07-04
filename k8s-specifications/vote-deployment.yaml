@@ -4,19 +4,53 @@ metadata:
   labels:
     app: vote
   name: vote
+
 spec:
   replicas: 1
+
   selector:
     matchLabels:
       app: vote
+
   template:
     metadata:
       labels:
         app: vote
+
     spec:
       containers:
-      - image: dockersamples/examplevotingapp_vote
-        name: vote
+      - name: vote
+        image: dockersamples/examplevotingapp_vote
+
         ports:
         - containerPort: 80
           name: vote
+
+        # Readiness Probe
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        # Liveness Probe
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        # Resource Requests & Limits
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
