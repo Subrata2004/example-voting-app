@@ -356,9 +356,42 @@ ipconfig /flushdns
 
 ---
 
-# GitHub Actions
+# GitHub Actions CI/CD
 
-The repository includes GitHub Actions workflows for automated Docker image builds.
+The repository includes a CI/CD pipeline (`.github/workflows/vote-ci.yml`) that runs automatically on every change inside `vote/**`.
+
+## Pipeline Triggers
+
+The workflow runs on:
+
+- Push to `main` when files change in `vote/**`, `k8s-specifications/**`, or the workflow itself
+- Pull requests targeting `main`
+
+## Pipeline Steps
+
+On every trigger, the pipeline performs the following steps in order:
+
+1. **Lint the code** — runs `flake8` on the Python vote application
+2. **Lint Kubernetes manifests** — runs `yamllint` on `k8s-specifications/`
+3. **Build Docker image** — builds the vote service image from `vote/Dockerfile`
+4. **Push to container registry** — pushes the image to GitHub Container Registry (GHCR)
+5. **Create Kind cluster** — provisions a local Kubernetes cluster for testing
+6. **Deploy the application** — applies all Kubernetes manifests and sets the vote deployment to use the newly built image
+7. **Run smoke test** — port-forwards the vote service and verifies `http://localhost:8080` responds successfully
+
+If any step fails, the pipeline stops immediately and the workflow is marked as failed.
+
+## Image Registry
+
+Built images are pushed to:
+
+```
+ghcr.io/<repository-owner>/example-voting-app-vote:<commit-sha>
+```
+
+## Why Lint First?
+
+Linting runs before build and deploy so that style issues and manifest errors are caught early. This prevents broken or poorly formatted code from progressing through the pipeline — the same failure you would see if `flake8` reports PEP 8 violations in `vote/app.py`.
 
 ---
 
