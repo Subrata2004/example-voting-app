@@ -1,65 +1,401 @@
-# Example Voting App
+# Example Voting App – Kubernetes Production Improvements
 
-A simple distributed application running across multiple Docker containers.
+## 📌 Project Overview
 
-## Getting started
+This project is a production-ready implementation of the **Example Voting App**, completed as part of the **SquareOps DevOps Take-Home Assignment**.
 
-Download [Docker Desktop](https://www.docker.com/products/docker-desktop) for Mac or Windows. [Docker Compose](https://docs.docker.com/compose) will be automatically installed. On Linux, make sure you have the latest version of [Compose](https://docs.docker.com/compose/install/).
+The original application is a simple distributed system consisting of multiple microservices. My goal was not only to deploy the application on Kubernetes but also to improve it by applying production-grade Kubernetes practices.
 
-This solution uses Python, Node.js, .NET, with Redis for messaging and Postgres for storage.
+The application allows users to vote between **Cats** and **Dogs**. Votes are stored in Redis, processed by a Worker service, saved in PostgreSQL, and displayed in real time on the Result application.
 
-Run in this directory to build and run the app:
+---
 
-```shell
-docker compose up
+# 🏗 Application Architecture
+
+```
+                User Browser
+                     │
+      ┌──────────────┴──────────────┐
+      │                             │
+ Vote Application             Result Application
+      │                             │
+      └──────────────┬──────────────┘
+                     │
+                 Redis Queue
+                     │
+                  Worker
+                     │
+               PostgreSQL
 ```
 
-The `vote` app will be running at [http://localhost:8080](http://localhost:8080), and the `results` will be at [http://localhost:8081](http://localhost:8081).
+---
 
-Alternately, if you want to run it on a [Docker Swarm](https://docs.docker.com/engine/swarm/), first make sure you have a swarm. If you don't, run:
+# 🛠 Technologies Used
 
-```shell
-docker swarm init
+- Docker
+- Docker Compose
+- Kubernetes
+- Kind Cluster
+- NGINX Ingress Controller
+- Redis
+- PostgreSQL
+- Python
+- Node.js
+- .NET
+- GitHub Actions
+
+---
+
+# 📂 Project Structure
+
+```
+example-voting-app
+│
+├── vote/
+├── result/
+├── worker/
+├── k8s-specifications/
+│   ├── vote-deployment.yaml
+│   ├── result-deployment.yaml
+│   ├── worker-deployment.yaml
+│   ├── redis-deployment.yaml
+│   ├── redis-service.yaml
+│   ├── db-statefulset.yaml
+│   ├── db-service.yaml
+│   ├── db-secret.yaml
+│   ├── ingress.yaml
+│   └── ...
+│
+├── docker-compose.yml
+└── README.md
 ```
 
-Once you have your swarm, in this directory run:
+---
 
-```shell
-docker stack deploy --compose-file docker-stack.yml vote
+# 🚀 Running with Docker Compose
+
+Clone the repository
+
+```bash
+git clone https://github.com/Subrata2004/example-voting-app.git
+
+cd example-voting-app
 ```
 
-## Run the app in Kubernetes
+Start the application
 
-The folder k8s-specifications contains the YAML specifications of the Voting App's services.
-
-Run the following command to create the deployments and services. Note it will create these resources in your current namespace (`default` if you haven't changed it.)
-
-```shell
-kubectl create -f k8s-specifications/
+```bash
+docker compose up --build
 ```
 
-The `vote` web app is then available on port 31000 on each host of the cluster, the `result` web app is available on port 31001.
+Open
 
-To remove them, run:
-
-```shell
-kubectl delete -f k8s-specifications/
+```
+http://localhost:8088
 ```
 
-## Architecture
+```
+http://localhost:8081
+```
 
-![Architecture diagram](architecture.excalidraw.png)
+---
 
-* A front-end web app in [Python](/vote) which lets you vote between two options
-* A [Redis](https://hub.docker.com/_/redis/) which collects new votes
-* A [.NET](/worker/) worker which consumes votes and stores them in…
-* A [Postgres](https://hub.docker.com/_/postgres/) database backed by a Docker volume
-* A [Node.js](/result) web app which shows the results of the voting in real time
+# ☸ Running on Kubernetes
 
-## Notes
+Create the Kind cluster
 
-The voting application only accepts one vote per client browser. It does not register additional votes if a vote has already been submitted from a client.
+```bash
+kind create cluster --name voting-app
+```
 
-This isn't an example of a properly architected perfectly designed distributed app... it's just a simple
-example of the various types of pieces and languages you might see (queues, persistent data, etc), and how to
-deal with them in Docker at a basic level.
+Deploy the application
+
+```bash
+kubectl apply -f k8s-specifications/
+```
+
+Verify
+
+```bash
+kubectl get pods
+
+kubectl get svc
+```
+
+---
+
+# 🌐 Access using Ingress
+
+Install NGINX Ingress Controller
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+```
+
+Start port-forward
+
+```bash
+kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8082:80
+```
+
+Open
+
+```
+http://voting.local:8082
+```
+
+```
+http://result.local:8082
+```
+
+---
+
+# ✅ Production Improvements
+
+During this assignment I implemented several production-focused improvements.
+
+## Kubernetes Secrets
+
+Created a Secret to securely store PostgreSQL credentials instead of hardcoding them.
+
+```
+postgres-secret
+```
+
+---
+
+## PostgreSQL StatefulSet
+
+Replaced the PostgreSQL Deployment with a StatefulSet to provide
+
+- Stable Pod identity
+- Persistent storage
+- Better database management
+
+---
+
+## Persistent Volume
+
+Configured PersistentVolumeClaim so PostgreSQL data survives Pod restarts.
+
+---
+
+## Resource Requests & Limits
+
+Added CPU and Memory requests
+
+```yaml
+requests:
+  cpu: 100m
+  memory: 128Mi
+```
+
+Added limits
+
+```yaml
+limits:
+  cpu: 250m
+  memory: 256Mi
+```
+
+---
+
+## Health Checks
+
+Implemented
+
+- Readiness Probe
+- Liveness Probe
+
+This allows Kubernetes to
+
+- detect unhealthy containers
+- restart failed Pods automatically
+- send traffic only when Pods are ready
+
+---
+
+## NGINX Ingress
+
+Configured host-based routing
+
+```
+voting.local
+```
+
+```
+result.local
+```
+
+---
+
+# ⚠ Challenges Faced
+
+During the implementation I encountered several practical issues.
+
+## Problem 1
+
+Docker failed to start.
+
+```
+Port 8080 already in use
+```
+
+### Cause
+
+Oracle Listener (TNSLSNR.EXE) was already using port 8080.
+
+### Solution
+
+Changed Docker Compose mapping
+
+Before
+
+```
+8080:80
+```
+
+After
+
+```
+8088:80
+```
+
+---
+
+## Problem 2
+
+NodePort was inaccessible.
+
+```
+ERR_CONNECTION_REFUSED
+```
+
+### Cause
+
+Kind NodePorts are not directly exposed to Windows.
+
+### Solution
+
+Used
+
+```bash
+kubectl port-forward
+```
+
+---
+
+## Problem 3
+
+Port-forward failed
+
+```
+Unable to listen on port 8080
+```
+
+### Cause
+
+Port already occupied.
+
+### Solution
+
+Used free ports
+
+```
+9090
+9091
+8082
+8085
+```
+
+---
+
+## Problem 4
+
+Worker Pod restarted.
+
+### Cause
+
+Redis restarted during rollout.
+
+### Solution
+
+Verified logs.
+
+After Redis became available Kubernetes automatically recovered the Worker Pod.
+
+---
+
+## Problem 5
+
+Browser couldn't resolve
+
+```
+voting.local
+```
+
+### Cause
+
+Windows hosts file wasn't updated.
+
+### Solution
+
+Added
+
+```
+127.0.0.1 voting.local
+
+127.0.0.1 result.local
+```
+
+Flushed DNS
+
+```
+ipconfig /flushdns
+```
+
+---
+
+# GitHub Actions
+
+The repository includes GitHub Actions workflows for automated Docker image builds.
+
+---
+
+# Learning Outcomes
+
+This project helped me gain practical experience with
+
+- Docker
+- Docker Compose
+- Kubernetes
+- Deployments
+- Services
+- StatefulSets
+- Persistent Volumes
+- Secrets
+- Ingress
+- Health Probes
+- Resource Management
+- Troubleshooting Kubernetes applications
+- GitHub Actions
+
+---
+
+# Future Improvements
+
+- Helm Charts
+- Horizontal Pod Autoscaler
+- Monitoring using Prometheus & Grafana
+- TLS using cert-manager
+- ArgoCD deployment
+
+---
+
+# Author
+
+**Subrata Dey**
+
+GitHub
+
+https://github.com/Subrata2004
