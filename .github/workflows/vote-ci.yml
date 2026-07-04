@@ -75,9 +75,14 @@ jobs:
 
       - name: Create Kind Cluster
         uses: helm/kind-action@v1
+        with:
+          cluster_name: kind
 
       - name: Load Image into Kind Cluster
-        run: kind load docker-image ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        run: |
+          kind load docker-image \
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+            --name kind
 
       - name: Create PostgreSQL Secret
         run: kubectl apply -f k8s-specifications/db-secret.yaml
